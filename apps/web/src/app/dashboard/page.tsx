@@ -28,10 +28,15 @@ export default async function DashboardPage() {
       status: o.status,
     }));
   } else {
-    const session = await auth();
-    if (!session?.user?.id) redirect("/login");
-    userName = session.user.name ?? session.user.email ?? "User";
-    orgs = await listUserOrganizations(session.user.id);
+    try {
+      const session = await auth();
+      if (!session?.user?.id) redirect("/login");
+      userName = session.user.name ?? session.user.email ?? "User";
+      orgs = await listUserOrganizations(session.user.id);
+    } catch (err) {
+      console.error("[dashboard] failed to load session:", err);
+      redirect("/login?error=Configuration");
+    }
   }
 
   return (

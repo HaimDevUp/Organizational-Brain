@@ -16,6 +16,7 @@ export const authConfig = {
   providers: googleProviders(),
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   trustHost: true,
   session: { strategy: "jwt" },

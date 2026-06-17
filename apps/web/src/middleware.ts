@@ -1,12 +1,27 @@
-import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { authConfig } from "@/lib/auth.config";
 
 const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health"];
 
+/** Auth.js v5 session cookie names (incl. chunked variants). */
+const SESSION_COOKIE_PREFIXES = [
+  "authjs.session-token",
+  "__Secure-authjs.session-token",
+  "__Host-authjs.session-token",
+  "next-auth.session-token",
+  "__Secure-next-auth.session-token",
+];
+
 function isAuthDisabled(): boolean {
   return process.env.DISABLE_AUTH === "true" && process.env.NODE_ENV !== "production";
+}
+
+function hasSessionCookie(req: NextRequest): boolean {
+  return req.cookies.getAll().some((cookie) =>
+    SESSION_COOKIE_PREFIXES.some(
+      (prefix) => cookie.name === prefix || cookie.name.startsWith(`${prefix}.`)
+    )
+  );
 }
 
 function withRequestId(response: NextResponse) {
@@ -16,7 +31,7 @@ function withRequestId(response: NextResponse) {
   return response;
 }
 
-function handleRequest(req: NextRequest & { auth?: { user?: unknown } | null }) {
+export default function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   if (isAuthDisabled()) {
@@ -28,7 +43,7 @@ function handleRequest(req: NextRequest & { auth?: { user?: unknown } | null }) 
     return res;
   }
 
-  const isLoggedIn = !!req.auth?.user;
+  const isLoggedIn = hasSessionCookie(req);
   const isAuthPage = path.startsWith("/login");
   const isPublicApi = PUBLIC_API_PREFIXES.some((p) => path.startsWith(p));
   const isProtectedApi = path.startsWith("/api/v1");
@@ -48,31 +63,15 @@ function handleRequest(req: NextRequest & { auth?: { user?: unknown } | null }) 
   }
 
   if (!isLoggedIn && !isAuthPage && !path.startsWith("/api")) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return withRequestId(NextResponse.redirect(new URL("/login", req.url)));
   }
 
   if (isLoggedIn && isAuthPage) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return withRequestId(NextResponse.redirect(new URL("/dashboard", req.url)));
   }
 
   return withRequestId(NextResponse.next());
 }
-
-function missingSecretMiddleware(req: NextRequest) {
-  const path = req.nextUrl.pathname;
-  if (path.startsWith("/api/health")) return NextResponse.next();
-  console.error("[middleware] AUTH_SECRET is not set — add it in Vercel Environment Variables");
-  return NextResponse.json(
-    { error: "Server misconfigured: AUTH_SECRET missing" },
-    { status: 500 }
-  );
-}
-
-const { auth: authProtected } = NextAuth(authConfig);
-
-export default process.env.AUTH_SECRET
-  ? authProtected((req) => handleRequest(req))
-  : missingSecretMiddleware;
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],

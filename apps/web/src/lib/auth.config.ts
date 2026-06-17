@@ -1,16 +1,19 @@
 import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 
+function googleProviders() {
+  const clientId = process.env.AUTH_GOOGLE_ID?.trim();
+  const clientSecret = process.env.AUTH_GOOGLE_SECRET?.trim();
+  if (!clientId || !clientSecret) return [];
+  return [Google({ clientId, clientSecret })];
+}
+
 /**
  * Edge-safe Auth.js config (no Prisma). Used by middleware only.
  */
 export const authConfig = {
-  providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
-    }),
-  ],
+  secret: process.env.AUTH_SECRET,
+  providers: googleProviders(),
   pages: {
     signIn: "/login",
   },

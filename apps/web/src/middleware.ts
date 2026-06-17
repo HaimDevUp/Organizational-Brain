@@ -1,8 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { authConfig } from "@/lib/auth.config";
-
-const { auth } = NextAuth(authConfig);
 
 const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health"];
 
@@ -17,7 +16,7 @@ function withRequestId(response: NextResponse) {
   return response;
 }
 
-export default auth((req) => {
+function handleRequest(req: NextRequest & { auth?: { user?: unknown } | null }) {
   const path = req.nextUrl.pathname;
 
   if (isAuthDisabled()) {
@@ -57,7 +56,23 @@ export default auth((req) => {
   }
 
   return withRequestId(NextResponse.next());
-});
+}
+
+function missingSecretMiddleware(req: NextRequest) {
+  const path = req.nextUrl.pathname;
+  if (path.startsWith("/api/health")) return NextResponse.next();
+  console.error("[middleware] AUTH_SECRET is not set — add it in Vercel Environment Variables");
+  return NextResponse.json(
+    { error: "Server misconfigured: AUTH_SECRET missing" },
+    { status: 500 }
+  );
+}
+
+const { auth: authProtected } = NextAuth(authConfig);
+
+export default process.env.AUTH_SECRET
+  ? authProtected((req) => handleRequest(req))
+  : missingSecretMiddleware;
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],

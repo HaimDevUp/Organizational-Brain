@@ -1,0 +1,13 @@
+{
+  "name": "@obos/graph",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": { "typecheck": "tsc --noEmit", "reindex": "tsx scripts/reindex-org.ts" },
+  "dependencies": {
+    "@obos/database": "workspace:*",
+    "@obos/shared": "workspace:*"
+  },
+  "devDependencies": { "tsx": "^4.19.4", "typescript": "^5.9.3" }
+}

@@ -1,0 +1,1015 @@
+// Organizational Brain OS — Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum OrganizationPlan {
+  free
+  team
+  enterprise
+}
+
+enum OrganizationStatus {
+  active
+  suspended
+  trial
+}
+
+enum AuthProvider {
+  local
+  google
+  oidc
+  saml
+}
+
+enum MemberStatus {
+  invited
+  active
+  suspended
+}
+
+enum DocumentType {
+  policy
+  runbook
+  faq
+  general
+}
+
+enum DocumentStatus {
+  draft
+  published
+  archived
+}
+
+enum PullRequestStatus {
+  draft
+  open
+  approved
+  changes_requested
+  merged
+  closed
+}
+
+enum ReviewState {
+  pending
+  approved
+  changes_requested
+  commented
+}
+
+enum FileChangeType {
+  added
+  modified
+  deleted
+  renamed
+}
+
+enum ActorType {
+  user
+  system
+  agent
+}
+
+enum GapType {
+  missing_topic
+  stale
+  broken_link
+  low_coverage
+  unanswered_query
+  contradiction
+}
+
+enum ContradictionStatus {
+  open
+  reviewing
+  resolved
+  dismissed
+}
+
+enum KnowledgeRelationType {
+  related_to
+  depends_on
+  parent_of
+  child_of
+  references
+  contradicts
+  replaces
+  supersedes
+  owned_by
+  generated_by_ai
+}
+
+enum RelationshipSuggestionStatus {
+  pending
+  approved
+  rejected
+  dismissed
+}
+
+enum AnalyticsEventType {
+  search
+  chat_question
+  approval
+  edit
+  agent_run
+}
+
+enum UsageMetric {
+  chat_message
+  search_query
+  agent_run
+  structure_request
+  indexing_job
+}
+
+enum AiRequestStatus {
+  ok
+  error
+}
+
+enum OnboardingStatus {
+  not_started
+  in_progress
+  completed
+}
+
+enum GapSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum GapStatus {
+  open
+  acknowledged
+  in_progress
+  resolved
+  dismissed
+}
+
+enum GapDetectedBy {
+  system
+  agent
+  user
+}
+
+enum AgentStatus {
+  active
+  disabled
+}
+
+enum ConversationContextType {
+  general
+  document
+  pr
+  gap
+}
+
+enum ConversationStatus {
+  active
+  archived
+}
+
+enum MessageRole {
+  user
+  assistant
+  system
+  tool
+}
+
+enum IndexingJobStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum LlmProvider {
+  openai
+  anthropic
+  gemini
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Platform & tenancy
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Organization {
+  id               String             @id @default(uuid()) @db.Uuid
+  slug             String             @unique @db.VarChar(63)
+  name             String             @db.VarChar(255)
+  plan             OrganizationPlan   @default(free)
+  status           OrganizationStatus @default(trial)
+  gitRepoPath      String             @map("git_repo_path")
+  settings         Json               @default("{}")
+  qdrantCollection String?            @map("qdrant_collection") @db.VarChar(128)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt        DateTime?          @map("deleted_at") @db.Timestamptz
+
+  members            OrganizationMember[]
+  departments        Department[]
+  roles              Role[]
+  userRoles          UserRole[]
+  knowledgeDocuments KnowledgeDocument[]
+  knowledgeVersions  KnowledgeVersion[]
+  pullRequests       PullRequest[]
+  auditLogs          AuditLog[]
+  knowledgeGaps      KnowledgeGap[]
+  knowledgeHealthScores KnowledgeHealthScore[]
+  agents             Agent[]
+  conversations      Conversation[]
+  messages           Message[]
+  apiKeys            ApiKey[]
+  webhooks           Webhook[]
+  indexingJobs       IndexingJob[]
+  llmConfigs         OrganizationLlmConfig[]
+  contradictions     KnowledgeContradiction[]
+  knowledgeRelations KnowledgeRelation[]
+  relationshipSuggestions RelationshipSuggestion[]
+  analyticsEvents    BrainAnalyticsEvent[]
+  onboardingPaths    OnboardingPath[]
+  expertProfiles     ExpertProfile[]
+  aiRequestLogs      AiRequestLog[]
+  usageEvents        UsageEvent[]
+
+  @@map("organizations")
+}
+
+model User {
+  id              String        @id @default(uuid()) @db.Uuid
+  email           String        @unique @db.VarChar(255)
+  emailVerified   DateTime?     @map("email_verified_at") @db.Timestamptz
+  passwordHash    String?       @map("password_hash")
+  name            String?       @db.VarChar(255)
+  image           String?       @map("avatar_url")
+  authProvider    AuthProvider  @default(local) @map("auth_provider")
+  externalId      String?       @map("external_id") @db.VarChar(255)
+  lastLoginAt     DateTime?     @map("last_login_at") @db.Timestamptz
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  accounts              Account[]
+  sessions              Session[]
+  memberships           OrganizationMember[]
+  departmentMemberships DepartmentMember[]
+  userRoles             UserRole[]
+  ownedDocuments        KnowledgeDocument[]  @relation("DocumentOwner")
+  authoredVersions      KnowledgeVersion[]
+  authoredPullRequests  PullRequest[]        @relation("PullRequestAuthor")
+  mergedPullRequests    PullRequest[]        @relation("PullRequestMerger")
+  pullRequestReviews    PullRequestReview[]
+  auditLogs             AuditLog[]
+  assignedGaps          KnowledgeGap[]       @relation("GapAssignee")
+  createdAgents         Agent[]
+  conversations         Conversation[]
+  grantedRoles          UserRole[]           @relation("RoleGranter")
+  sentInvites           OrganizationMember[] @relation("Inviter")
+  apiKeys               ApiKey[]
+  expertProfiles        ExpertProfile[]
+  onboardingProgress    OnboardingProgress[]
+  analyticsEvents       BrainAnalyticsEvent[]
+  aiRequestLogs         AiRequestLog[]
+  usageEvents           UsageEvent[]
+  createdRelations      KnowledgeRelation[] @relation("RelationCreator")
+  reviewedSuggestions   RelationshipSuggestion[] @relation("SuggestionReviewer")
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  status         MemberStatus @default(invited)
+  joinedAt       DateTime?    @map("joined_at") @db.Timestamptz
+  invitedById    String?      @map("invited_by_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy    User?        @relation("Inviter", fields: [invitedById], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@map("organization_members")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Departments
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Department {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  parentId       String?   @map("parent_id") @db.Uuid
+  name           String    @db.VarChar(255)
+  slug           String    @db.VarChar(63)
+  description    String?
+  path           String    @db.VarChar(1024)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Department?        @relation("DepartmentTree", fields: [parentId], references: [id])
+  children     Department[]       @relation("DepartmentTree")
+  members      DepartmentMember[]
+  documents    KnowledgeDocument[]
+  scopedRoles  UserRole[]
+  scopedAgents Agent[]
+  gaps         KnowledgeGap[]
+  onboardingPaths OnboardingPath[]
+  expertProfiles  ExpertProfile[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@map("departments")
+}
+
+model DepartmentMember {
+  id           String   @id @default(uuid()) @db.Uuid
+  departmentId String   @map("department_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  isLead       Boolean  @default(false) @map("is_lead")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, userId])
+  @@map("department_members")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RBAC
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(100)
+  slug           String   @db.VarChar(63)
+  description    String?
+  isSystem       Boolean  @default(false) @map("is_system")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([organizationId, slug])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  resource    String   @db.VarChar(64)
+  action      String   @db.VarChar(64)
+  slug        String   @unique @db.VarChar(128)
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id                 String   @id @default(uuid()) @db.Uuid
+  organizationId     String   @map("organization_id") @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  roleId             String   @map("role_id") @db.Uuid
+  scopeDepartmentId  String?  @map("scope_department_id") @db.Uuid
+  grantedById        String?  @map("granted_by_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role            Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  scopeDepartment Department?  @relation(fields: [scopeDepartmentId], references: [id])
+  grantedBy       User?        @relation("RoleGranter", fields: [grantedById], references: [id])
+
+  @@index([organizationId, userId])
+  @@map("user_roles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Knowledge
+// ─────────────────────────────────────────────────────────────────────────────
+
+model KnowledgeDocument {
+  id                String         @id @default(uuid()) @db.Uuid
+  organizationId    String         @map("organization_id") @db.Uuid
+  departmentId      String?        @map("department_id") @db.Uuid
+  title             String         @db.VarChar(500)
+  slug              String         @db.VarChar(255)
+  gitPath           String         @map("git_path")
+  docType           DocumentType   @default(general) @map("doc_type")
+  status            DocumentStatus @default(draft)
+  currentVersionId  String?        @map("current_version_id") @db.Uuid
+  healthScore       Decimal?       @map("health_score") @db.Decimal(5, 2)
+  healthUpdatedAt   DateTime?      @map("health_updated_at") @db.Timestamptz
+  ownerUserId       String         @map("owner_user_id") @db.Uuid
+  tags              String[]
+  metadata          Json           @default("{}")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?      @map("deleted_at") @db.Timestamptz
+
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department     Department?           @relation(fields: [departmentId], references: [id])
+  owner          User                  @relation("DocumentOwner", fields: [ownerUserId], references: [id])
+  currentVersion KnowledgeVersion?     @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  versions       KnowledgeVersion[]    @relation("DocumentVersions")
+  pullRequestFiles PullRequestFile[]
+  healthScores   KnowledgeHealthScore[]
+  gaps           KnowledgeGap[]
+  indexingJobs   IndexingJob[]
+  contradictionsA KnowledgeContradiction[] @relation("ContradictionDocA")
+  contradictionsB KnowledgeContradiction[] @relation("ContradictionDocB")
+  outgoingRelations KnowledgeRelation[] @relation("RelationSource")
+  incomingRelations KnowledgeRelation[] @relation("RelationTarget")
+  relationSuggestionsAsSource RelationshipSuggestion[] @relation("SuggestionSource")
+  relationSuggestionsAsTarget RelationshipSuggestion[] @relation("SuggestionTarget")
+  onboardingSteps OnboardingStep[]
+
+  @@unique([organizationId, gitPath])
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeVersion {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
+  versionNumber  Int      @map("version_number")
+  gitCommitSha   String   @map("git_commit_sha") @db.Char(40)
+  contentHash    String   @map("content_hash") @db.Char(64)
+  contentPreview String?  @map("content_preview")
+  wordCount      Int      @default(0) @map("word_count")
+  createdById    String   @map("created_by_id") @db.Uuid
+  pullRequestId  String?  @map("pull_request_id") @db.Uuid
+  mergedAt       DateTime @map("merged_at") @db.Timestamptz
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document          KnowledgeDocument  @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy         User               @relation(fields: [createdById], references: [id])
+  pullRequest       PullRequest?       @relation(fields: [pullRequestId], references: [id])
+  currentForDocument KnowledgeDocument[] @relation("CurrentVersion")
+
+  @@unique([documentId, versionNumber])
+  @@map("knowledge_versions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pull requests (Git workflow)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PullRequest {
+  id                 String            @id @default(uuid()) @db.Uuid
+  organizationId     String            @map("organization_id") @db.Uuid
+  number             Int
+  title              String            @db.VarChar(500)
+  description        String?
+  status             PullRequestStatus @default(draft)
+  sourceBranch       String            @map("source_branch") @db.VarChar(255)
+  targetBranch       String            @default("main") @map("target_branch") @db.VarChar(255)
+  authorId           String            @map("author_id") @db.Uuid
+  mergedById         String?           @map("merged_by_id") @db.Uuid
+  mergedAt           DateTime?         @map("merged_at") @db.Timestamptz
+  closedAt           DateTime?         @map("closed_at") @db.Timestamptz
+  gitMergeCommitSha  String?           @map("git_merge_commit_sha") @db.Char(40)
+  githubPrNumber     Int?              @map("github_pr_number")
+  requiredApprovals  Int               @default(1) @map("required_approvals")
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User                @relation("PullRequestAuthor", fields: [authorId], references: [id])
+  mergedBy     User?               @relation("PullRequestMerger", fields: [mergedById], references: [id])
+  files        PullRequestFile[]
+  reviews      PullRequestReview[]
+  versions     KnowledgeVersion[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@map("pull_requests")
+}
+
+model PullRequestFile {
+  id            String         @id @default(uuid()) @db.Uuid
+  pullRequestId String         @map("pull_request_id") @db.Uuid
+  documentId    String?        @map("document_id") @db.Uuid
+  gitPath       String         @map("git_path")
+  changeType    FileChangeType @map("change_type")
+  additions     Int            @default(0)
+  deletions     Int            @default(0)
+  proposedContent String?      @map("proposed_content") @db.Text
+
+  pullRequest PullRequest        @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  document    KnowledgeDocument? @relation(fields: [documentId], references: [id])
+
+  @@index([pullRequestId])
+  @@map("pull_request_files")
+}
+
+model PullRequestReview {
+  id            String      @id @default(uuid()) @db.Uuid
+  pullRequestId String      @map("pull_request_id") @db.Uuid
+  reviewerId    String      @map("reviewer_id") @db.Uuid
+  state         ReviewState @default(pending)
+  body          String?
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  reviewer    User        @relation(fields: [reviewerId], references: [id])
+
+  @@unique([pullRequestId, reviewerId])
+  @@map("pull_request_reviews")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Audit
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  actorUserId    String?   @map("actor_user_id") @db.Uuid
+  actorType      ActorType @default(user) @map("actor_type")
+  action         String    @db.VarChar(128)
+  resourceType   String    @map("resource_type") @db.VarChar(64)
+  resourceId     String    @map("resource_id") @db.Uuid
+  ipAddress      String?   @map("ip_address")
+  userAgent      String?   @map("user_agent")
+  metadata       Json      @default("{}")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorUserId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([resourceType, resourceId])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Health & gaps
+// ─────────────────────────────────────────────────────────────────────────────
+
+model KnowledgeGap {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  departmentId   String?       @map("department_id") @db.Uuid
+  documentId     String?       @map("document_id") @db.Uuid
+  gapType        GapType       @map("gap_type")
+  title          String        @db.VarChar(500)
+  description    String?
+  severity       GapSeverity   @default(medium)
+  status         GapStatus     @default(open)
+  evidence       Json          @default("{}")
+  detectedBy     GapDetectedBy @default(system) @map("detected_by")
+  assignedToId   String?       @map("assigned_to_id") @db.Uuid
+  resolvedAt     DateTime?     @map("resolved_at") @db.Timestamptz
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department   Department?        @relation(fields: [departmentId], references: [id])
+  document     KnowledgeDocument? @relation(fields: [documentId], references: [id])
+  assignedTo   User?              @relation("GapAssignee", fields: [assignedToId], references: [id])
+
+  @@index([organizationId, status, severity])
+  @@map("knowledge_gaps")
+}
+
+model KnowledgeHealthScore {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
+  score          Decimal  @db.Decimal(5, 2)
+  dimensions     Json     @default("{}")
+  computedAt     DateTime @map("computed_at") @db.Timestamptz
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, computedAt(sort: Desc)])
+  @@map("knowledge_health_scores")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agents & conversations
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Agent {
+  id                String      @id @default(uuid()) @db.Uuid
+  organizationId    String      @map("organization_id") @db.Uuid
+  name              String      @db.VarChar(255)
+  slug              String      @db.VarChar(63)
+  description       String?
+  systemPrompt      String      @map("system_prompt")
+  modelConfig       Json        @default("{}") @map("model_config")
+  toolsEnabled      String[]    @map("tools_enabled")
+  pluginKey         String?     @map("plugin_key") @db.VarChar(128)
+  departmentScopeId String?     @map("department_scope_id") @db.Uuid
+  status            AgentStatus @default(active)
+  createdById       String      @map("created_by_id") @db.Uuid
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  departmentScope   Department?  @relation(fields: [departmentScopeId], references: [id])
+  createdBy         User         @relation(fields: [createdById], references: [id])
+  conversations     Conversation[]
+
+  @@unique([organizationId, slug])
+  @@map("agents")
+}
+
+model Conversation {
+  id             String                  @id @default(uuid()) @db.Uuid
+  organizationId String                  @map("organization_id") @db.Uuid
+  userId         String                  @map("user_id") @db.Uuid
+  agentId        String?                 @map("agent_id") @db.Uuid
+  title          String?                 @db.VarChar(500)
+  contextType    ConversationContextType @default(general) @map("context_type")
+  contextId      String?                 @map("context_id") @db.Uuid
+  status         ConversationStatus      @default(active)
+  metadata       Json                    @default("{}")
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent        Agent?       @relation(fields: [agentId], references: [id])
+  messages     Message[]
+
+  @@index([organizationId, userId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(uuid()) @db.Uuid
+  conversationId String      @map("conversation_id") @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  role           MessageRole
+  content        String
+  citations      Json        @default("[]")
+  confidenceScore Decimal?  @map("confidence_score") @db.Decimal(5, 4)
+  tokenUsage     Json?       @map("token_usage")
+  modelUsed      String?     @map("model_used") @db.VarChar(64)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Integrations & indexing
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.VarChar(255)
+  keyHash        String    @map("key_hash")
+  scopes         String[]
+  expiresAt      DateTime? @map("expires_at") @db.Timestamptz
+  createdById    String    @map("created_by_id") @db.Uuid
+  lastUsedAt     DateTime? @map("last_used_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User         @relation(fields: [createdById], references: [id])
+
+  @@index([organizationId])
+  @@map("api_keys")
+}
+
+model Webhook {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  url            String
+  events         String[]
+  secret         String
+  status         String   @default("active") @db.VarChar(32)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("webhooks")
+}
+
+model IndexingJob {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  documentId     String            @map("document_id") @db.Uuid
+  commitSha      String            @map("commit_sha") @db.Char(40)
+  status         IndexingJobStatus @default(pending)
+  error          String?
+  startedAt      DateTime?         @map("started_at") @db.Timestamptz
+  completedAt    DateTime?         @map("completed_at") @db.Timestamptz
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("indexing_jobs")
+}
+
+model OrganizationLlmConfig {
+  id                String      @id @default(uuid()) @db.Uuid
+  organizationId    String      @map("organization_id") @db.Uuid
+  provider          LlmProvider
+  apiKeyEncrypted   String      @map("api_key_encrypted")
+  defaultModel      String      @map("default_model") @db.VarChar(128)
+  embeddingModel    String      @map("embedding_model") @db.VarChar(128)
+  isDefault         Boolean     @default(false) @map("is_default")
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+  @@map("organization_llm_configs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI layer extensions
+// ─────────────────────────────────────────────────────────────────────────────
+
+model KnowledgeContradiction {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  documentAId    String              @map("document_a_id") @db.Uuid
+  documentBId    String              @map("document_b_id") @db.Uuid
+  summary        String
+  evidence       Json                @default("{}")
+  status         ContradictionStatus @default(open)
+  detectedAt     DateTime            @default(now()) @map("detected_at") @db.Timestamptz
+  resolvedAt     DateTime?           @map("resolved_at") @db.Timestamptz
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documentA    KnowledgeDocument @relation("ContradictionDocA", fields: [documentAId], references: [id], onDelete: Cascade)
+  documentB    KnowledgeDocument @relation("ContradictionDocB", fields: [documentBId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("knowledge_contradictions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Knowledge Graph
+// ─────────────────────────────────────────────────────────────────────────────
+
+model KnowledgeRelation {
+  id               String                @id @default(uuid()) @db.Uuid
+  organizationId   String                @map("organization_id") @db.Uuid
+  sourceDocumentId String                @map("source_document_id") @db.Uuid
+  targetDocumentId String                @map("target_document_id") @db.Uuid
+  relationType     KnowledgeRelationType @map("relation_type")
+  confidenceScore  Decimal?              @map("confidence_score") @db.Decimal(5, 4)
+  metadata         Json                  @default("{}")
+  createdById      String?               @map("created_by_id") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceDocument KnowledgeDocument @relation("RelationSource", fields: [sourceDocumentId], references: [id], onDelete: Cascade)
+  targetDocument KnowledgeDocument @relation("RelationTarget", fields: [targetDocumentId], references: [id], onDelete: Cascade)
+  createdBy      User?             @relation("RelationCreator", fields: [createdById], references: [id])
+
+  @@unique([sourceDocumentId, targetDocumentId, relationType])
+  @@index([organizationId, sourceDocumentId])
+  @@index([organizationId, targetDocumentId])
+  @@index([organizationId, relationType])
+  @@map("knowledge_relations")
+}
+
+model RelationshipSuggestion {
+  id               String                       @id @default(uuid()) @db.Uuid
+  organizationId   String                       @map("organization_id") @db.Uuid
+  sourceDocumentId String                       @map("source_document_id") @db.Uuid
+  targetDocumentId String                       @map("target_document_id") @db.Uuid
+  relationType     KnowledgeRelationType        @default(related_to) @map("relation_type")
+  confidenceScore  Decimal                      @map("confidence_score") @db.Decimal(5, 4)
+  reason           String
+  evidence         Json                         @default("{}")
+  status           RelationshipSuggestionStatus @default(pending)
+  reviewedById     String?                      @map("reviewed_by_id") @db.Uuid
+  reviewedAt       DateTime?                    @map("reviewed_at") @db.Timestamptz
+  createdAt        DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime                     @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceDocument KnowledgeDocument @relation("SuggestionSource", fields: [sourceDocumentId], references: [id], onDelete: Cascade)
+  targetDocument KnowledgeDocument @relation("SuggestionTarget", fields: [targetDocumentId], references: [id], onDelete: Cascade)
+  reviewedBy     User?             @relation("SuggestionReviewer", fields: [reviewedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([organizationId, sourceDocumentId])
+  @@map("relationship_suggestions")
+}
+
+model BrainAnalyticsEvent {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  userId         String?            @map("user_id") @db.Uuid
+  eventType      AnalyticsEventType @map("event_type")
+  resourceType   String?            @map("resource_type") @db.VarChar(64)
+  resourceId     String?            @map("resource_id") @db.Uuid
+  metadata       Json               @default("{}")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, eventType, createdAt(sort: Desc)])
+  @@map("brain_analytics_events")
+}
+
+model OnboardingPath {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  slug           String   @db.VarChar(63)
+  title          String   @db.VarChar(255)
+  description    String?
+  departmentId   String?  @map("department_id") @db.Uuid
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department   Department?        @relation(fields: [departmentId], references: [id])
+  steps        OnboardingStep[]
+  progress     OnboardingProgress[]
+
+  @@unique([organizationId, slug])
+  @@map("onboarding_paths")
+}
+
+model OnboardingStep {
+  id           String   @id @default(uuid()) @db.Uuid
+  pathId       String   @map("path_id") @db.Uuid
+  orderIndex   Int      @map("order_index")
+  title        String   @db.VarChar(255)
+  description  String?
+  documentId   String?  @map("document_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  path     OnboardingPath     @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  document KnowledgeDocument? @relation(fields: [documentId], references: [id])
+
+  @@index([pathId, orderIndex])
+  @@map("onboarding_steps")
+}
+
+model OnboardingProgress {
+  id          String           @id @default(uuid()) @db.Uuid
+  pathId      String           @map("path_id") @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  status      OnboardingStatus @default(not_started)
+  completedSteps Int           @default(0) @map("completed_steps")
+  completedAt DateTime?        @map("completed_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  path OnboardingPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pathId, userId])
+  @@map("onboarding_progress")
+}
+
+model ExpertProfile {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  departmentId     String?  @map("department_id") @db.Uuid
+  expertiseScore   Decimal  @map("expertise_score") @db.Decimal(8, 2)
+  contributions    Int      @default(0)
+  documentsOwned   Int      @default(0) @map("documents_owned")
+  approvalsGiven   Int      @default(0) @map("approvals_given")
+  topics           String[]
+  computedAt       DateTime @map("computed_at") @db.Timestamptz
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department?  @relation(fields: [departmentId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, expertiseScore(sort: Desc)])
+  @@map("expert_profiles")
+}
+
+model AiRequestLog {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  action         String          @db.VarChar(64)
+  model          String?         @db.VarChar(128)
+  tokenUsage     Json            @default("{}") @map("token_usage")
+  metadata       Json            @default("{}")
+  durationMs     Int?            @map("duration_ms")
+  status         AiRequestStatus @default(ok)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, action, createdAt(sort: Desc)])
+  @@map("ai_request_logs")
+}
+
+model UsageEvent {
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  userId         String?     @map("user_id") @db.Uuid
+  metric         UsageMetric
+  quantity       Int         @default(1)
+  metadata       Json        @default("{}")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, metric, createdAt(sort: Desc)])
+  @@map("usage_events")
+}

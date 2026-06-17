@@ -1,0 +1,29 @@
+{
+  "name": "organizational-brain",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "db:generate": "pnpm --filter @obos/database exec prisma generate",
+    "db:migrate": "pnpm --filter @obos/database exec prisma migrate dev",
+    "db:push": "pnpm --filter @obos/database exec prisma db push",
+    "db:seed": "pnpm --filter @obos/database exec tsx prisma/seed.ts",
+    "db:seed:upnext": "pnpm --filter @obos/database exec tsx prisma/seed-upnext-knowledge.ts",
+    "db:reindex:graph": "pnpm --filter @obos/graph exec tsx scripts/reindex-org.ts",
+    "indexer:dev": "pnpm --filter @obos/worker-indexer dev",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.4"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20"
+  }
+}

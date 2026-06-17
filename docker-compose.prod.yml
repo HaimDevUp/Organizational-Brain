@@ -1,0 +1,71 @@
+# Production stack — run behind TLS terminator (nginx, ALB, etc.)
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-obos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-obos}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-obos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.5
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-obos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-obos}?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
+      AUTH_URL: ${AUTH_URL:?set AUTH_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "3000:3000"
+
+  indexer:
+    build:
+      context: .
+      dockerfile: apps/worker-indexer/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - qdrant
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-obos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-obos}?schema=public
+      QDRANT_URL: http://qdrant:6333
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      INDEXER_POLL_MS: ${INDEXER_POLL_MS:-5000}
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:

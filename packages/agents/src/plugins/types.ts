@@ -26,6 +26,8 @@ export interface AgentRunResult {
   answer: string;
   confidence: number;
   citations: unknown[];
+  connectedDocuments?: unknown[];
+  knowledgePaths?: unknown[];
   metadata?: Record<string, unknown>;
 }
 

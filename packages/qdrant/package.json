@@ -6,6 +6,7 @@
   "types": "./src/index.ts",
   "scripts": { "typecheck": "tsc --noEmit" },
   "dependencies": {
+    "@obos/shared": "workspace:*",
     "@qdrant/js-client-rest": "^1.12.5"
   },
   "devDependencies": { "typescript": "^5.9.3" }

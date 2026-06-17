@@ -202,6 +202,9 @@ importers:
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(magicast@0.3.5)(typescript@5.9.3))(typescript@5.9.3)
     devDependencies:
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.19.19
       prisma:
         specifier: ^6.19.3
         version: 6.19.3(magicast@0.3.5)(typescript@5.9.3)
@@ -218,6 +221,9 @@ importers:
         specifier: ^21.1.1
         version: 21.1.1
     devDependencies:
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.19.19
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -240,6 +246,9 @@ importers:
 
   packages/qdrant:
     dependencies:
+      '@obos/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@qdrant/js-client-rest':
         specifier: ^1.12.5
         version: 1.18.0(typescript@5.9.3)

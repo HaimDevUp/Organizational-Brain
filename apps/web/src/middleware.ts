@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { authConfig } from "@/lib/auth.config";
 
 const { auth } = NextAuth(authConfig);
@@ -18,21 +17,19 @@ function withRequestId(response: NextResponse) {
   return response;
 }
 
-function devMiddleware(req: NextRequest) {
+export default auth((req) => {
   const path = req.nextUrl.pathname;
-  if (path.startsWith("/login")) {
-    return withRequestId(
-      NextResponse.redirect(new URL("/dashboard", req.url))
-    );
-  }
-  const res = withRequestId(NextResponse.next());
-  res.headers.set("x-auth-disabled", "1");
-  return res;
-}
 
-const authProtected = auth((req) => {
+  if (isAuthDisabled()) {
+    if (path.startsWith("/login")) {
+      return withRequestId(NextResponse.redirect(new URL("/dashboard", req.url)));
+    }
+    const res = withRequestId(NextResponse.next());
+    res.headers.set("x-auth-disabled", "1");
+    return res;
+  }
+
   const isLoggedIn = !!req.auth?.user;
-  const path = req.nextUrl.pathname;
   const isAuthPage = path.startsWith("/login");
   const isPublicApi = PUBLIC_API_PREFIXES.some((p) => path.startsWith(p));
   const isProtectedApi = path.startsWith("/api/v1");
@@ -61,11 +58,6 @@ const authProtected = auth((req) => {
 
   return withRequestId(NextResponse.next());
 });
-
-export default function middleware(req: NextRequest) {
-  if (isAuthDisabled()) return devMiddleware(req);
-  return authProtected(req);
-}
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],

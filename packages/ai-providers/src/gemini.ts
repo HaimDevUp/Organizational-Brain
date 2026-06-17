@@ -65,7 +65,7 @@ export function createGeminiProvider(apiKey: string) {
     const system = messages.find((m) => m.role === "system")?.content;
     const model = genAI.getGenerativeModel({
       model: modelId,
-      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+      ...(system ? { systemInstruction: system } : {}),
       generationConfig: {
         temperature: opts?.temperature ?? 0.2,
         maxOutputTokens: opts?.maxTokens ?? 2048,

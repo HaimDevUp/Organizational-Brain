@@ -21,6 +21,29 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function embeddingDimensions(): number {
+  return parseInt(process.env.QDRANT_VECTOR_SIZE ?? "1536", 10);
+}
+
+/** gemini-embedding-001 truncated vectors need L2 normalization (Google MRL). */
+function l2Normalize(values: number[]): number[] {
+  const norm = Math.sqrt(values.reduce((sum, v) => sum + v * v, 0));
+  if (norm === 0) return values;
+  return values.map((v) => v / norm);
+}
+
+function fitEmbedding(values: number[], targetSize: number): number[] {
+  if (values.length === targetSize) return values;
+  if (values.length < targetSize) {
+    throw new Error(
+      `Gemini embedding length ${values.length} is smaller than QDRANT_VECTOR_SIZE ${targetSize}`
+    );
+  }
+  // MRL: leading dimensions retain semantic quality when truncated from 3072.
+  const truncated = values.slice(0, targetSize);
+  return targetSize === 3072 ? truncated : l2Normalize(truncated);
+}
+
 function chatModelCandidates(primary: string): string[] {
   const fallbacks = (process.env.GEMINI_CHAT_FALLBACK_MODELS ?? "gemini-2.0-flash,gemini-flash-latest")
     .split(",")
@@ -96,6 +119,7 @@ export function createGeminiProvider(apiKey: string) {
     async embed(texts: string[], model?: string): Promise<EmbedResult> {
       const emb = genAI.getGenerativeModel({ model: model ?? embeddingModel });
       const vectors: number[][] = [];
+      const targetSize = embeddingDimensions();
       const taskType =
         texts.length === 1 ? TaskType.RETRIEVAL_QUERY : TaskType.RETRIEVAL_DOCUMENT;
       try {
@@ -104,7 +128,7 @@ export function createGeminiProvider(apiKey: string) {
             content: { role: "user", parts: [{ text }] },
             taskType,
           });
-          vectors.push(r.embedding.values);
+          vectors.push(fitEmbedding(r.embedding.values, targetSize));
         }
       } catch (err) {
         rethrowProviderError(err, "Gemini");

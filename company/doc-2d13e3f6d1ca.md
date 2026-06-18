@@ -3,6 +3,11 @@ title: לקוחות אסטרטגיים
 tags: ["לקוחות", "אסטרטגיים", "clients", "strategic"]
 ---
 
+---
+title: לקוחות אסטרטגיים
+tags: ["לקוחות", "אסטרטגיים", "clients", "strategic"]
+---
+
 מייצגים **62%** מההכנסות.
 
 ## clients
@@ -10,7 +15,7 @@ tags: ["לקוחות", "אסטרטגיים", "clients", "strategic"]
 - [[mahir-li--client--shufersal]]
 - [[mahir-li--client--teva]]
 - [[mahir-li--client--israel-post]]
-- [[mahir-li--client--wolt-partners]]
+- [[company/wolt-partners.md]]
 
 ## מדיניות
 - SLA ייעודי — [[mahir-li--operations--sla]]

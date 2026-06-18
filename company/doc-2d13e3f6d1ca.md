@@ -1,5 +1,9 @@
 ---
 title: לקוחות אסטרטגיים
+---
+
+---
+title: לקוחות אסטרטגיים
 tags: ["לקוחות", "אסטרטגיים", "clients", "strategic"]
 ---
 
@@ -15,7 +19,7 @@ tags: ["לקוחות", "אסטרטגיים", "clients", "strategic"]
 - [[mahir-li--client--shufersal]]
 - [[mahir-li--client--teva]]
 - [[mahir-li--client--israel-post]]
-- [[company/wolt-partners.md]]
+- [[wolt-partners.md]]
 
 ## מדיניות
 - SLA ייעודי — [[mahir-li--operations--sla]]

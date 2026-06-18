@@ -6,13 +6,15 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:mahirli": "tsx --env-file=../database/.env scripts/seed-mahirli-knowledge.ts"
   },
   "dependencies": {
     "@obos/database": "workspace:*",
     "@obos/shared": "workspace:*"
   },
   "devDependencies": {
+    "tsx": "^4.19.4",
     "typescript": "^5.9.3"
   }
 }

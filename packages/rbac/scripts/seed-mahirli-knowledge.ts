@@ -1,20 +1,18 @@
 /**
  * Import company/mahir-li*.md into org `mahirli` and queue Qdrant indexing.
  * Run: pnpm db:seed:mahirli
- * Then: pnpm indexer:retry-failed && ORG_SLUG=mahirli pnpm db:reindex:graph
+ * Then: pnpm indexer:process-pending && ORG_SLUG=mahirli pnpm db:reindex:graph
  */
 import { createHash } from "crypto";
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
-import { PrismaClient } from "@prisma/client";
-import { seedOrganizationRoles } from "@obos/rbac";
+import { prisma } from "@obos/database";
 import {
   buildMarkdownWithFrontmatter,
   parseFrontmatter,
   parseOrgSettings,
 } from "@obos/shared";
-
-const prisma = new PrismaClient();
+import { seedOrganizationRoles } from "../src/seed-roles";
 
 const ORG_SLUG = process.env.ORG_SLUG ?? "mahirli";
 const ORG_NAME = process.env.ORG_NAME ?? "מהיר לי";
@@ -127,21 +125,14 @@ async function ensureOrganization(ownerId: string) {
       where: { organizationId_slug: { organizationId: org.id, slug: "admin" } },
     });
     if (adminRole) {
-      await prisma.userRole.upsert({
-        where: {
-          organizationId_userId_roleId: {
-            organizationId: org.id,
-            userId: ownerId,
-            roleId: adminRole.id,
-          },
-        },
-        create: {
-          organizationId: org.id,
-          userId: ownerId,
-          roleId: adminRole.id,
-        },
-        update: {},
+      const existing = await prisma.userRole.findFirst({
+        where: { organizationId: org.id, userId: ownerId, roleId: adminRole.id },
       });
+      if (!existing) {
+        await prisma.userRole.create({
+          data: { organizationId: org.id, userId: ownerId, roleId: adminRole.id },
+        });
+      }
     }
 
     console.log(`Created organization: ${ORG_NAME} (/${ORG_SLUG})`);
@@ -295,7 +286,7 @@ async function main() {
   console.log(`\nDone. Open http://localhost:3000/${ORG_SLUG}/knowledge`);
   console.log(`Brain: http://localhost:3000/${ORG_SLUG}/brain`);
   console.log(`Graph: http://localhost:3000/${ORG_SLUG}/graph`);
-  console.log("\nNext: pnpm indexer:retry-failed");
+  console.log("\nNext: pnpm indexer:process-pending");
   console.log("Then: ORG_SLUG=mahirli pnpm db:reindex:graph");
 }
 

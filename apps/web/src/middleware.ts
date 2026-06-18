@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isAuthDisabled } from "@/lib/auth-disabled";
 
 const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health"];
 
@@ -11,10 +12,6 @@ const SESSION_COOKIE_PREFIXES = [
   "next-auth.session-token",
   "__Secure-next-auth.session-token",
 ];
-
-function isAuthDisabled(): boolean {
-  return process.env.DISABLE_AUTH === "true" && process.env.NODE_ENV !== "production";
-}
 
 function hasSessionCookie(req: NextRequest): boolean {
   return req.cookies.getAll().some((cookie) =>

@@ -1,11 +1,11 @@
 import { prisma } from "@obos/database";
+import { isAuthDisabled as isAuthDisabledEnv } from "./auth-disabled";
 
-/** True when auth is bypassed for local testing (never in production). */
+/** True when auth is bypassed (DISABLE_AUTH=true). Works in production if explicitly set. */
 export function isAuthDisabled(): boolean {
-  if (process.env.DISABLE_AUTH !== "true") return false;
+  if (!isAuthDisabledEnv()) return false;
   if (process.env.NODE_ENV === "production") {
-    console.warn("[obos] DISABLE_AUTH is ignored in production");
-    return false;
+    console.warn("[obos] DISABLE_AUTH=true in production — auth bypass is active");
   }
   return true;
 }

@@ -26,6 +26,8 @@
     "GEMINI_EMBEDDING_MODEL",
     "INDEXER_POLL_MS",
     "REDIS_URL",
+    "DISABLE_AUTH",
+    "DEV_AUTH_USER_EMAIL",
     "NODE_ENV"
   ],
   "tasks": {

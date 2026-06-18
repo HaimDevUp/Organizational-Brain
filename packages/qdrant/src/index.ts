@@ -6,8 +6,22 @@ export const VECTOR_SIZE = parseInt(process.env.QDRANT_VECTOR_SIZE ?? "1536", 10
 
 let client: QdrantClient | null = null;
 
+function normalizeQdrantUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    // @qdrant/js-client-rest defaults to port 6333 when omitted; Qdrant Cloud uses 443.
+    if (!parsed.port && parsed.protocol === "https:") {
+      parsed.port = "443";
+    }
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return url;
+  }
+}
+
 function resolveQdrantClientOptions(): ConstructorParameters<typeof QdrantClient>[0] {
-  const url = process.env.QDRANT_URL ?? "http://localhost:6333";
+  const rawUrl = process.env.QDRANT_URL ?? "http://localhost:6333";
+  const url = normalizeQdrantUrl(rawUrl);
   const apiKey = process.env.QDRANT_API_KEY?.trim();
   const checkCompatibility =
     process.env.QDRANT_CHECK_COMPATIBILITY === "true";
@@ -41,8 +55,39 @@ async function qdrantCall<T>(fn: () => Promise<T>): Promise<T> {
           "service-unavailable"
         );
       }
+      const apiErr = err as Error & {
+        status?: number;
+        data?: { status?: { error?: string } };
+      };
+      const detail = apiErr.data?.status?.error;
+      if (detail) {
+        throw new AppError(
+          apiErr.status && apiErr.status >= 400 && apiErr.status < 500 ? 400 : 503,
+          "Search Error",
+          detail,
+          "service-unavailable"
+        );
+      }
     }
     throw err;
+  }
+}
+
+const PAYLOAD_INDEXES = [
+  { field_name: "organization_id", field_schema: "keyword" as const },
+  { field_name: "document_id", field_schema: "keyword" as const },
+  { field_name: "department_id", field_schema: "keyword" as const },
+  { field_name: "tags", field_schema: "keyword" as const },
+  { field_name: "status", field_schema: "keyword" as const },
+];
+
+async function ensurePayloadIndexes(qdrant: QdrantClient, name: string): Promise<void> {
+  for (const index of PAYLOAD_INDEXES) {
+    try {
+      await qdrant.createPayloadIndex(name, index);
+    } catch {
+      // index may already exist
+    }
   }
 }
 
@@ -74,23 +119,8 @@ export async function ensureCollection(orgId: string): Promise<string> {
     await qdrant.createCollection(name, {
       vectors: { size: VECTOR_SIZE, distance: "Cosine" },
     });
-    await qdrant.createPayloadIndex(name, {
-      field_name: "organization_id",
-      field_schema: "keyword",
-    });
-    await qdrant.createPayloadIndex(name, {
-      field_name: "document_id",
-      field_schema: "keyword",
-    });
-    await qdrant.createPayloadIndex(name, {
-      field_name: "department_id",
-      field_schema: "keyword",
-    });
-    await qdrant.createPayloadIndex(name, {
-      field_name: "tags",
-      field_schema: "keyword",
-    });
   }
+  await ensurePayloadIndexes(qdrant, name);
   return name;
 }
 

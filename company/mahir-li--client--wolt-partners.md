@@ -1,7 +1,4 @@
----
-title: לקוח אסטרטגי: Wolt Partners
-tags: ["Wolt Partners", "לקוח אסטרטגי"]
----
+# לקוח אסטרטגי: Wolt Partners
 
 **איש קשר:** Tom K., Ops Israel  
 **SLA:** 93% under 45 min (מיקרו-משלוח)  

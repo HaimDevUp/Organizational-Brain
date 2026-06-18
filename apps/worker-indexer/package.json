@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/main.ts",
-    "start": "tsx src/main.ts"
+    "dev": "tsx watch --env-file=../../.env src/main.ts",
+    "start": "tsx --env-file=../../.env src/main.ts",
+    "retry-failed": "tsx --env-file=../../.env src/retry-failed.ts",
+    "process-pending": "tsx --env-file=../../.env src/process-pending.ts"
   },
   "dependencies": {
     "@obos/database": "workspace:*",

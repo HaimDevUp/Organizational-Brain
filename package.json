@@ -12,8 +12,11 @@
     "db:push": "pnpm --filter @obos/database exec prisma db push",
     "db:seed": "pnpm --filter @obos/database exec tsx prisma/seed.ts",
     "db:seed:upnext": "pnpm --filter @obos/database exec tsx prisma/seed-upnext-knowledge.ts",
+    "db:seed:mahirli": "pnpm --filter @obos/database exec tsx prisma/seed-mahirli-knowledge.ts",
     "db:reindex:graph": "pnpm --filter @obos/graph exec tsx scripts/reindex-org.ts",
     "indexer:dev": "pnpm --filter @obos/worker-indexer dev",
+    "indexer:retry-failed": "pnpm --filter @obos/worker-indexer retry-failed",
+    "indexer:process-pending": "pnpm --filter @obos/worker-indexer process-pending",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },

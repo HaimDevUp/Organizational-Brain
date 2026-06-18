@@ -32,6 +32,19 @@ export function jsonError(error: unknown, instance?: string) {
       { status: 403 }
     );
   }
+  if (isConnectionRefused(error)) {
+    return NextResponse.json(
+      {
+        type: "https://obos.app/errors/service-unavailable",
+        title: "Search Unavailable",
+        status: 503,
+        detail:
+          "Qdrant is not reachable. Set QDRANT_URL and QDRANT_API_KEY to your Qdrant Cloud cluster (not localhost) in apps/web/.env.local locally and in Vercel env vars for production.",
+        instance,
+      },
+      { status: 503 }
+    );
+  }
   console.error(error);
   return NextResponse.json(
     {
@@ -43,6 +56,13 @@ export function jsonError(error: unknown, instance?: string) {
     },
     { status: 500 }
   );
+}
+
+function isConnectionRefused(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.message.includes("ECONNREFUSED")) return true;
+  const cause = (error as Error & { cause?: { code?: string } }).cause;
+  return error.message.includes("fetch failed") && cause?.code === "ECONNREFUSED";
 }
 
 export function parsePagination(searchParams: URLSearchParams) {

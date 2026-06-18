@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "next build",
+    "build": "pnpm --filter @obos/database exec prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
@@ -20,6 +20,7 @@
     "@obos/rag": "workspace:*",
     "@obos/rbac": "workspace:*",
     "@obos/shared": "workspace:*",
+    "@prisma/client": "^6.19.3",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-separator": "^1.1.7",

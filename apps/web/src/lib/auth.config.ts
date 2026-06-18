@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
+import "./env";
 
 function googleProviders() {
   const clientId = process.env.AUTH_GOOGLE_ID?.trim();

@@ -3,7 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: [
-    "@obos/database",
     "@obos/shared",
     "@obos/rbac",
     "@obos/github-git",
@@ -13,7 +12,12 @@ const nextConfig: NextConfig = {
     "@obos/agents",
     "@obos/graph",
   ],
-  serverExternalPackages: ["@qdrant/js-client-rest", "undici"],
+  serverExternalPackages: [
+    "@prisma/client",
+    "@obos/database",
+    "@qdrant/js-client-rest",
+    "undici",
+  ],
 };
 
 export default nextConfig;

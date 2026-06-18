@@ -1,4 +1,5 @@
 import { signIn, authConfigStatus } from "@/lib/auth";
+import { normalizeAppUrl } from "@/lib/env";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -28,6 +29,9 @@ export default async function LoginPage({
   if (!config.hasSecret) configIssues.push("AUTH_SECRET is missing on the server.");
   if (!config.hasGoogle) configIssues.push("AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET are missing.");
   if (!config.hasDatabase) configIssues.push("DATABASE_URL is missing (required to save users after login).");
+  if (config.authUrl && !normalizeAppUrl(config.authUrl)) {
+    configIssues.push("AUTH_URL is invalid.");
+  }
 
   return (
     <div className="relative flex min-h-screen items-center justify-center p-4">
